@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Champ de Vision</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .grid {
+            display: none; /* Initially hide the grid */
+            grid-gap: 10px;
+        }
+        .led {
+            background-color: #ccc;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+        .led.on {
+            background-color: #ff0000;
+        }
+        .led.green {
+            background-color: #00ff00;
+        }
+        .led.yellow {
+            background-color: yellow;
+        }
+        .led.blue {
+            background-color: blue;
+        }
+        .timer, .result {
+            font-size: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        .instructions, .language-selection {
+            font-size: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+        .language-selection {
+            display: flex;
+        }
+        .instructions {
+            display: none;
+        }
+        .title {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .start-button {
+            display: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="language-selection">
+    <div class="title">TEST CHAMP DE VISION / TEST VISION FIELD</div>
+    <button class="button" onclick="selectLanguage('fr')">Français</button>
+    <button class="button" onclick="selectLanguage('en')">English</button>
+</div>
+
+<div class="instructions" id="instructions-fr">
+    <div>
+        Regardez la LED BLEU en tout temps et appuyez sur ENTER à chaque fois que vous voyez une LED rouge. <br>
+        Lorsque vous êtes prêt à commencer, appuyez sur START TEST. Vous avez 2 minutes.
+    </div>
+</div>
+<div class="instructions" id="instructions-en">
+    <div>
+        Watch the BLUE LED at all times and press ENTER each time you see a red LED. <br>
+        When you are ready to start, press START TEST. You have 2 minutes.
+    </div>
+</div>
+
+<button class="start-button" id="start-test" onclick="startTest()">START TEST</button>
+
+<div class="grid"></div>
+<div class="timer">Time remaining: <span id="timer">2:00</span></div>
+<div class="result"></div>
+
+<script>
+    const grid = document.querySelector('.grid');
+    const timerElement = document.getElementById('timer');
+    const resultElement = document.querySelector('.result');
+    const instructionsElementFr = document.getElementById('instructions-fr');
+    const instructionsElementEn = document.getElementById('instructions-en');
+    const languageSelectionElement = document.querySelector('.language-selection');
+    const startButton = document.getElementById('start-test');
+    const gridSize = 20;
+    const ledCount = gridSize * gridSize;
+    let activeLedIndex = -1;
+    let startTime = null;
+    let blinkCount = 0;
+    let successfulHits = 0;
+    let missedEnters = 0;
+    const testDuration = 120000; // 120 seconds in milliseconds
+    let blinkTimeout, timerInterval;
+
+    function createGrid() {
+        grid.innerHTML = ''; // Clear existing LEDs
+        const gridContainerSize = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+        const ledSize = gridContainerSize / (gridSize + 2); // Adjust for grid gaps
+        grid.style.gridTemplateColumns = `repeat(${gridSize}, ${ledSize}px)`;
+
+        for (let i = 0; i < ledCount; i++) {
+            const led = document.createElement('div');
+            if (i === Math.floor(ledCount / 2) + (gridSize / 2)) { // Center position for the blue LED
+                led.classList.add('led', 'blue');
+            } else {
+                led.classList.add('led');
+                led.style.width = `${ledSize}px`;
+                led.style.height = `${ledSize}px`;
+            }
+            grid.appendChild(led);
+        }
+    }
+
+    function getRandomIndex() {
+        let index;
+        do {
+            index = Math.floor(Math.random() * ledCount);
+        } while (index === Math.floor(ledCount / 2) + (gridSize / 2)); // Avoid the center blue LED
+        return index;
+    }
+
+    function activateLed() {
+        const leds = document.querySelectorAll('.led');
+        if (activeLedIndex !== -1) {
+            leds[activeLedIndex].classList.remove('on');
+            leds[activeLedIndex].classList.add('yellow'); // Turn yellow if not confirmed within 5 seconds
+            missedEnters++; // Increment missed ENTER count if LED is not confirmed
+        }
+        activeLedIndex = getRandomIndex();
+        leds[activeLedIndex].classList.add('on');
+        blinkCount++;
+        setTimeout(() => {
+            if (activeLedIndex !== -1) {
+                leds[activeLedIndex].classList.remove('on');
+                if (!leds[activeLedIndex].classList.contains('green')) {
+                    leds[activeLedIndex].classList.add('yellow'); // Turn yellow if not confirmed within 5 seconds
+                    missedEnters++; // Increment missed ENTER count if LED is not confirmed
+                }
+            }
+        }, 5000); // 5 seconds
+        const randomDelay = Math.random() * (5000 - 2000) + 2000; // Random delay between 2 and 5 seconds
+        blinkTimeout = setTimeout(activateLed, randomDelay);
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            confirmLed();
+        }
+    }
+
+    function handleTouch(event) {
+        confirmLed();
+    }
+
+    function confirmLed() {
+        if (activeLedIndex !== -1) {
+            const leds = document.querySelectorAll('.led');
+            leds[activeLedIndex].classList.remove('on');
+            successfulHits++;
+            leds[activeLedIndex].classList.remove('yellow'); // Remove yellow if confirmed
+            leds[activeLedIndex].classList.add('green'); // Change to green if confirmed
+            activeLedIndex = -1;
+        } else {
+            missedEnters++; // Increment missed ENTER count if no LED is active
+        }
+    }
+
+    function updateTime() {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = testDuration - elapsedTime;
+        const minutes = Math.floor(remainingTime / 60000);
+        const seconds = ((remainingTime % 60000) / 1000).toFixed(0);
+        timerElement.textContent = `Time remaining: ${minutes}:${(seconds < 10 ? '0' : '')}${seconds}`;
+
+        if (remainingTime <= 0) {
+            clearTimeout(blinkTimeout);
+            clearInterval(timerInterval);
+            const successRate = ((successfulHits / blinkCount) * 100).toFixed(2);
+            const totalMissed = blinkCount - successfulHits - missedEnters; // Calculate total missed ENTER
+            resultElement.textContent = `Success rate: ${successRate}%. Total blinks: ${blinkCount}. Total missed ENTERs: ${totalMissed}.`;
+        }
+    }
+
+    function selectLanguage(language) {
+        languageSelectionElement.style.display = 'none';
+        if (language === 'fr') {
+            instructionsElementFr.style.display = 'flex';
+        } else if (language === 'en') {
+            instructionsElementEn.style.display = 'flex';
+        }
+        startButton.style.display = 'block';
+    }
+
+    function startTest() {
+        instructionsElementFr.style.display = 'none';
+        instructionsElementEn.style.display = 'none';
+        startButton.style.display = 'none';
+        grid.style.display = 'grid'; // Show the grid when the test starts
+        timerElement.style.display = 'block';
+        resultElement.style.display = 'block';
+        startTime = Date.now();
+        activateLed(); // Start the LED activation
+        timerInterval = setInterval(updateTime, 1000); // Update time every second
+    }
+
+    document.addEventListener('keypress', handleKeyPress);
+    document.addEventListener('touchstart', handleTouch);
+
+    createGrid();
+</script>
+
+</body>
+</html>
